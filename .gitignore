@@ -1,0 +1,16 @@
+# Secrets
+.env
+
+# Container data volumes
+pg_data/
+newapi_data/
+open-webui_data/
+
+# Backups
+backup/*.sql
+backup/*.sql.gz
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
