@@ -89,18 +89,38 @@ docker compose logs -f newapi
 # 等到看到 server started on port 3000 就可以 Ctrl+C 退出日志
 ```
 
-### 步骤 2 — 配置 Cloudflare Tunnel（双 hostname）
+### 步骤 2 — 配置 Cloudflare Tunnel（三 hostname，双层访问控制）
 
-在 Cloudflare Zero Trust 控制台 → Networks → Tunnels，给你已经创建的 tunnel 加两条 Public Hostname：
+在 Cloudflare Zero Trust 控制台 → Networks → Tunnels，给已创建的 tunnel 添加三条 Public Hostname。把 NewAPI 拆成**管理域**和**API 域**，因为两者的访问模式天然不同：
 
-| Subdomain | Service URL             | 用途                          |
-| --------- | ----------------------- | ----------------------------- |
-| `chat`    | `http://open-webui:8080`| 浏览器访问 Open WebUI         |
-| `api`     | `http://newapi:3000`    | Python / MATLAB 脚本走这条    |
+| Subdomain | Service URL              | 访问方式                     | 用途                                                |
+| --------- | ------------------------ | ---------------------------- | --------------------------------------------------- |
+| `chat`    | `http://open-webui:8080` | 浏览器 + CF Access（可选） | 日常聊天、RAG、代码执行                             |
+| `admin`   | `http://newapi:3000`     | 浏览器 + **CF Access 强制** | NewAPI 管理后台：渠道、用户、令牌、日志、计费       |
+| `api`     | `http://newapi:3000`     | **仅 Token**，无 CF Access  | Python / MATLAB / 任意脚本调用 `/v1/chat/completions` 等 |
 
-> 因为 `cloudflared` 容器和业务容器在同一个 `ai-net` 网桥上，所以 Service URL 可以直接写服务名；不需要暴露任何宿主机端口。
+> 管理域和 API 域指向**同一个容器**，但通过不同 hostname 在 Cloudflare 边缘分流；这样：
+> - 管理后台被零信任身份护城河保护，即使 NewAPI 本身有 0-day 也难以横向
+> - API 域保持无浏览器层的 401/403 干扰，OpenAI SDK / curl 能直接用 Bearer token
 
-建议同时给 `api.*` 套一层 **Cloudflare Access**（Email OTP / Google SSO），这样即使 NewAPI 的令牌泄漏，攻击者也需要先过身份认证。
+配置 CF Access 策略（只给 `admin.*` 挂）：
+
+```
+Zero Trust → Access → Applications → Add application
+  Type:        Self-hosted
+  Subdomain:   admin
+  Domain:      your-domain.com
+  Policy:      Allow   when   Emails include  you@mail.com
+  Session:     24h
+  Identity:    Google / GitHub / Email OTP 任选
+```
+
+> **不要**给 `api.*` 挂 CF Access，否则 Python 脚本拿不到登录 cookie 会全部 403。
+> 如果怕 `api.*` 被扫，额外做两件事：
+> 1. 在 NewAPI 令牌页面**限制 IP 白名单**
+> 2. 在 Cloudflare WAF 给 `api.*` 加 rate limit（比如 60 req/min per IP）
+
+因为 `cloudflared` 容器和业务容器在同一个 `ai-net` 网桥上，所以 Service URL 可以直接写服务名；不需要暴露任何宿主机端口。
 
 ### 步骤 3 — 在 NewAPI 里完成渠道 & 令牌配置（解决鸡生蛋）
 
@@ -146,18 +166,42 @@ sudo crontab -e
 0 3 * * * /opt/ai-platform/backup/pg_dump.sh >> /var/log/pgdump.log 2>&1
 ```
 
-## 可选：启用 Playwright 抓取 JS 重页面
+## 浏览器抓取策略（内存敏感）
 
-默认用 Open WebUI 内置的 `safe_web` loader 已经足够。如果要做 SPA / 动态加载网页的 RAG，启用 sidecar：
+### 当前策略（4GB 主机下的默认）
+
+```yaml
+WEB_LOADER_ENGINE: safe_web         # 内置 cheerio/requests，零额外内存
+PERSONAL_BROWSER_HEADLESS: "true"   # 前端对话时的轻量浏览模式开关
+# 不启用 browserless/playwright 容器
+```
+
+这套组合可以稳稳处理：
+- 纯 HTML / Markdown / PDF 论文（大部分 IEEE / arXiv / 工艺文档）
+- DuckDuckGo 直出的搜索摘要
+- RAG 里的文档切片检索
+
+### 触发升级的信号
+
+当出现以下**任一**情况时，才拆分 browserless 容器：
+1. 抓长篇 SPA（比如某些需要登录的学术数据库前端）返回空白
+2. `docker stats` 看到 open-webui 容器持续 > 1.6GB 或被 OOM kill
+3. RAG 重负载下主机 swap 开始频繁读写
+
+### 升级路径（预留好，一条命令切换）
 
 ```bash
-# .env 里改：
+# 1. 编辑 .env
 WEB_LOADER_ENGINE=playwright
 PLAYWRIGHT_WS_URL=ws://playwright:3000
 
-# 启动 sidecar profile
+# 2. 拉起 sidecar（Compose profile 已预置）
 docker compose --profile browser up -d
+
+# 3. 等到内存吃紧再考虑升级服务器到 8GB 或关掉 sidecar 回退
 ```
+
+> 注：Open WebUI 的 `PERSONAL_BROWSER_HEADLESS` 在较新版本中可能重命名或被 `ENABLE_WEB_SEARCH` 类变量接管，升级镜像后若该变量不再被识别，从日志里能看到启动警告，再按发行说明更名即可。
 
 ## 日常运维
 

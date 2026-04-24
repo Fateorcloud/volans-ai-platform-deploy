@@ -85,8 +85,11 @@ services:
       RAG_OPENAI_API_KEY: ${NEWAPI_MASTER_KEY}
       RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-text-embedding-3-large}
       RAG_RERANKING_MODEL: ${RAG_RERANKING_MODEL:-}
+      # Built-in lightweight web fetcher; 4GB host stays comfortable.
+      # Upgrade to playwright sidecar only if JS-heavy pages are needed.
       WEB_LOADER_ENGINE: ${WEB_LOADER_ENGINE:-safe_web}
       PLAYWRIGHT_WS_URL: ${PLAYWRIGHT_WS_URL:-}
+      PERSONAL_BROWSER_HEADLESS: "true"
       HTTP_PROXY: http://host.docker.internal:7890
       HTTPS_PROXY: http://host.docker.internal:7890
       NO_PROXY: localhost,127.0.0.1,.local,postgres,newapi,open-webui,playwright,172.16.0.0/12,10.0.0.0/8
