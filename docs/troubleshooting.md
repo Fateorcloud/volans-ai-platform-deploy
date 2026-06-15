@@ -1,99 +1,127 @@
-# 已知问题处理
+# 排障
 
-## Open WebUI 没有注册入口
+## LobeHub 打不开
+
+检查服务：
+
+```bash
+cd /opt/lobehub
+docker compose ps
+docker compose logs --tail=200 lobehub
+```
+
+检查本机端口：
+
+```bash
+curl -I http://127.0.0.1:3210/
+ss -lntup | grep ':3210'
+```
+
+如果没有监听，先看 `lobehub` 日志里的数据库迁移或环境变量错误。
+
+## Compose 配置失败
+
+```bash
+cd /opt/lobehub
+docker compose config --quiet
+```
+
+常见原因：
+
+```text
+.env 不存在
+必填 secret 仍是 CHANGE_ME
+AUTH_SECRET 包含空格但没有加引号
+端口变量写成了非数字
+```
+
+## 数据库连接失败
+
+LobeHub 使用 host network，连接的是宿主机 loopback：
+
+```text
+postgresql://postgres:<password>@127.0.0.1:15432/lobechat
+```
 
 检查：
 
 ```bash
-docker run --rm --network ai-platform_ai-net curlimages/curl:8.10.1 \
-  -sS http://open-webui:8080/api/config | jq '.features.enable_signup'
+cd /opt/lobehub
+docker compose exec -T postgresql pg_isready -U postgres
+ss -lntup | grep ':15432'
 ```
 
-如果返回 `false`，确认 Compose 中存在：
+## 上传或图片不可用
+
+第一阶段 `.env` 默认：
+
+```env
+S3_ENDPOINT=http://127.0.0.1:9000
+S3_ENABLE_PATH_STYLE=1
+S3_SET_ACL=0
+```
+
+本地访问时 SSH 隧道必须同时转发 `3210` 和 `9000`：
+
+```bash
+ssh -L 3210:127.0.0.1:3210 -L 9000:127.0.0.1:9000 <server-alias>
+```
+
+检查 RustFS：
+
+```bash
+curl -I http://127.0.0.1:9000/health
+docker compose logs --tail=200 lobe-rustfs
+docker compose logs --tail=200 lobe-rustfs-init
+```
+
+## 模型不可用
+
+检查 `.env` 是否填了对应供应商 key：
+
+```text
+OPENAI_API_KEY
+ANTHROPIC_API_KEY
+GOOGLE_API_KEY
+DEEPSEEK_API_KEY
+OPENROUTER_API_KEY
+```
+
+如果使用兼容网关，配置对应 provider 的 proxy URL，例如：
+
+```env
+OPENAI_PROXY_URL=https://api.example.com/v1
+```
+
+修改 `.env` 后重启：
+
+```bash
+cd /opt/lobehub
+docker compose up -d --force-recreate lobehub
+```
+
+## 端口误开放公网
+
+验证脚本会失败：
+
+```bash
+sudo bash deploy.sh verify
+```
+
+这些端口不能监听 `0.0.0.0` 或 `[::]`：
+
+```text
+3210
+9000
+9001
+15432
+16379
+18080
+```
+
+检查 compose 是否仍使用：
 
 ```yaml
-ENABLE_PERSISTENT_CONFIG: "False"
-ENABLE_SIGNUP: ${OPENWEBUI_ENABLE_SIGNUP:-true}
-DEFAULT_USER_ROLE: ${OPENWEBUI_DEFAULT_USER_ROLE:-pending}
+127.0.0.1:3210
+127.0.0.1:9000
 ```
-
-然后重建：
-
-```bash
-cd /opt/Serve
-docker compose up -d --force-recreate open-webui
-```
-
-## 登录后 401 Unauthorized
-
-确认：
-
-```text
-.env 存在 WEBUI_SECRET_KEY
-docker-compose.yml 注入 WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
-```
-
-重建 Open WebUI 后清理浏览器中 `chat.example.com` 的站点数据。
-
-## Docker 容器访问 172.18.0.1:7890 超时
-
-确认：
-
-```bash
-systemctl status ai-proxy-firewall --no-pager
-iptables -S INPUT | grep 7890
-```
-
-当前应有类似：
-
-```text
--A INPUT -s 172.18.0.0/16 -d 172.18.0.1/32 -i br-* -p tcp --dport 7890 -j ACCEPT
-```
-
-修复：
-
-```bash
-sudo bash deploy.sh proxy
-```
-
-## API 域名被 Cloudflare Access 拦截
-
-症状：
-
-```bash
-curl -I https://api.example.com/v1/models
-```
-
-返回 `302`，响应头里出现：
-
-```text
-Www-Authenticate: Cloudflare-Access
-Location: https://<team>.cloudflareaccess.com/...
-```
-
-原因：`api.example.com` 被放进了 Cloudflare Access Application。OpenAI SDK 和脚本调用通常只带 `Authorization: Bearer ...`，不会有浏览器登录 cookie，因此会被 Access 层拦截。
-
-修复：
-
-```text
-admin.example.com -> newapi:3000，加 Cloudflare Access
-api.example.com   -> newapi:3000，不加 Cloudflare Access
-```
-
-然后用 NewAPI token 自身的额度、分组、IP 白名单以及 Cloudflare WAF/rate limit 保护 API 域名。
-
-## 7890 公网监听
-
-这是高风险状态。`verify.sh` 会直接失败。Privoxy 应只包含：
-
-```text
-listen-address 172.18.0.1:7890
-forward-socks5t / 127.0.0.1:10808 .
-```
-
-不能出现：
-
-```text
-listen-address 0.0.0.0:7890
-```
-

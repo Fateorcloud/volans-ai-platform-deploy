@@ -1,53 +1,42 @@
 # Open Source Release Checklist
 
-Use this checklist before creating a public GitHub repository.
+Use this checklist before publishing or updating the public repository.
 
 ## Required Files
 
-- `README.md` explains architecture, manual Cloudflare steps, deployment, and verification.
-- `.env.example` contains only placeholders.
-- `.gitignore` excludes generated credentials, databases, backups, and client configs.
+- `README.md` and `README.en.md` describe the LobeHub local-only deployment.
+- `.env.example` contains placeholders only.
+- `.gitignore` excludes generated credentials, databases, backups, and logs.
 - `LICENSE` is present.
-- `SECURITY.md` documents secret handling and public port boundaries.
+- `SECURITY.md` documents secret handling and local port boundaries.
 - `scripts/80_security_scan.sh` passes.
 
 ## Privacy Review
 
 Confirm the repository does not contain:
 
-- Real domains that you do not want public.
+- Real domains that should remain private.
 - Real VPS IP addresses.
-- Real Cloudflare Tunnel tokens or Access policy IDs.
-- Real NewAPI/OpenAI tokens.
-- Real Open WebUI `WEBUI_SECRET_KEY`.
-- Real Basic Auth plaintext passwords or hashes tied to production.
-- SSH private keys, public keys, known-hosts files, or NAT VPS usernames.
-- 3xui SQLite databases, Reality private keys, client UUIDs, or subscriptions.
-- Generated Mihomo/Clash config files for live clients.
+- Real provider API keys.
+- Real `KEY_VAULTS_SECRET`, `AUTH_SECRET`, PostgreSQL passwords, RustFS keys,
+  or SearXNG secrets.
+- SSH private keys, public keys, or known-hosts files.
+- `postgres_data/`, `redis_data/`, `rustfs_data/`, or backup archives.
+- Private deployment notes.
 
 ## Suggested Release Commands
 
 ```bash
 bash scripts/80_security_scan.sh
-git init
-git add .
 git status --short
-git commit -m "Initial open source deployment toolkit"
+git add .
+git commit -m "refactor: simplify deployment to lobehub"
+git push
 ```
 
-Create the GitHub repository after the scan passes and the staged file list
-looks clean.
-
-## GitHub Repository Settings
-
-Recommended:
-
-- Public repository only after the first security scan passes.
-- Disable GitHub Actions secrets until workflows are intentionally added.
-- Enable secret scanning if available for the account.
-- Add a short repository description:
+Recommended repository description:
 
 ```text
-One-shot Ubuntu deployment toolkit for Open WebUI, NewAPI, Cloudflare Tunnel,
-GPT Image Playground, and 3xui split egress.
+Local-first Ubuntu deployment toolkit for self-hosted LobeHub with PostgreSQL,
+Redis, RustFS, and SearXNG.
 ```

@@ -1,14 +1,4 @@
-name: ai-platform
-
-networks:
-  ai-net:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.18.0.0/16
-          gateway: 172.18.0.1
-  xui_default:
-    external: true
+name: lobehub
 
 x-logging: &default-logging
   driver: json-file
@@ -17,164 +7,148 @@ x-logging: &default-logging
     max-file: "3"
 
 services:
-  postgres:
-    image: postgres:${POSTGRES_VERSION:-15.8-alpine}
-    container_name: postgres
+  lobe:
+    image: lobehub/lobehub:${LOBEHUB_VERSION:-latest}
+    container_name: lobehub
     restart: always
+    network_mode: host
     logging: *default-logging
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
-      TZ: ${TZ:-Asia/Shanghai}
-    volumes:
-      - ./pg_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    expose:
-      - "5432"
-    networks:
-      - ai-net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
-
-  newapi:
-    image: calciumion/new-api:${NEWAPI_VERSION:-latest}
-    container_name: newapi
-    restart: always
-    logging: *default-logging
-    extra_hosts:
-      - "host.docker.internal:172.18.0.1"
-    environment:
-      SQL_DSN: postgresql://${DB_USER}:${DB_PASS}@postgres:5432/newapi_db
-      TZ: ${TZ:-Asia/Shanghai}
-      GODEBUG: http2client=0
-      HTTP_PROXY: http://host.docker.internal:7890
-      HTTPS_PROXY: http://host.docker.internal:7890
-      NO_PROXY: localhost,127.0.0.1,.local,postgres,newapi,open-webui,172.16.0.0/12,10.0.0.0/8
-      http_proxy: http://host.docker.internal:7890
-      https_proxy: http://host.docker.internal:7890
-      no_proxy: localhost,127.0.0.1,.local,postgres,newapi,open-webui,172.16.0.0/12,10.0.0.0/8
-    volumes:
-      - ./newapi_data:/data
-    expose:
-      - "3000"
-    networks:
-      - ai-net
     depends_on:
-      postgres:
+      postgresql:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/status >/dev/null || exit 1"]
-      interval: 20s
-      timeout: 5s
-      retries: 5
-      start_period: 40s
-
-  open-webui:
-    image: ghcr.io/open-webui/open-webui:${OPENWEBUI_VERSION:-main}
-    container_name: open-webui
-    command: bash -lc "python /app/backend/data/patches/patch_safe_web_loader.py && bash start.sh"
-    restart: always
-    logging: *default-logging
-    environment:
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASS}@postgres:5432/openwebui_db
-      OPENAI_API_BASE_URL: http://newapi:3000/v1
-      OPENAI_API_KEY: ${NEWAPI_MASTER_KEY}
-      WEBUI_URL: https://${CHAT_DOMAIN:-chat.example.com}
-      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
-      ENABLE_PERSISTENT_CONFIG: "False"
-      ENABLE_SIGNUP: ${OPENWEBUI_ENABLE_SIGNUP:-true}
-      DEFAULT_USER_ROLE: ${OPENWEBUI_DEFAULT_USER_ROLE:-pending}
-      ENABLE_SIGNUP_PASSWORD_CONFIRMATION: "true"
-      ENABLE_DIRECT_CONNECTIONS: ${OPENWEBUI_ENABLE_DIRECT_CONNECTIONS:-false}
-      ENABLE_API_KEYS: ${OPENWEBUI_ENABLE_API_KEYS:-false}
-      USER_PERMISSIONS_FEATURES_API_KEYS: ${OPENWEBUI_USER_PERMISSIONS_FEATURES_API_KEYS:-false}
-      BYPASS_MODEL_ACCESS_CONTROL: ${OPENWEBUI_BYPASS_MODEL_ACCESS_CONTROL:-true}
-      PENDING_USER_OVERLAY_TITLE: "账号等待审核"
-      PENDING_USER_OVERLAY_CONTENT: "你的账号已提交注册申请。管理员审核通过后即可使用。如需加急，请联系管理员。"
-      ENABLE_WEB_SEARCH: ${OPENWEBUI_ENABLE_WEB_SEARCH:-true}
-      WEB_SEARCH_ENGINE: ${OPENWEBUI_WEB_SEARCH_ENGINE:-brave}
-      BRAVE_SEARCH_API_KEY: ${OPENWEBUI_BRAVE_SEARCH_API_KEY:-}
-      WEB_SEARCH_RESULT_COUNT: ${OPENWEBUI_WEB_SEARCH_RESULT_COUNT:-3}
-      WEB_SEARCH_CONCURRENT_REQUESTS: ${OPENWEBUI_WEB_SEARCH_CONCURRENT_REQUESTS:-1}
-      WEB_LOADER_ENGINE: safe_web
-      WEB_LOADER_CONCURRENT_REQUESTS: ${OPENWEBUI_WEB_LOADER_CONCURRENT_REQUESTS:-3}
-      BYPASS_WEB_SEARCH_WEB_LOADER: ${OPENWEBUI_BYPASS_WEB_SEARCH_WEB_LOADER:-false}
-      BYPASS_WEB_SEARCH_EMBEDDING_AND_RETRIEVAL: ${OPENWEBUI_BYPASS_WEB_SEARCH_EMBEDDING_AND_RETRIEVAL:-false}
-      USER_PERMISSIONS_FEATURES_WEB_SEARCH: ${OPENWEBUI_USER_PERMISSIONS_FEATURES_WEB_SEARCH:-true}
-      PERSONAL_BROWSER_HEADLESS: "true"
-      TZ: ${TZ:-Asia/Shanghai}
-    volumes:
-      - ./open-webui_data:/app/backend/data
-    expose:
-      - "8080"
-    networks:
-      - ai-net
-    depends_on:
-      postgres:
+      redis:
         condition: service_healthy
-      newapi:
+      rustfs:
+        condition: service_healthy
+      rustfs-init:
+        condition: service_completed_successfully
+      searxng:
         condition: service_started
+    env_file:
+      - .env
+    environment:
+      KEY_VAULTS_SECRET: ${KEY_VAULTS_SECRET}
+      AUTH_SECRET: ${AUTH_SECRET}
+      APP_URL: ${APP_URL:-http://127.0.0.1:3210}
+      INTERNAL_APP_URL: ${INTERNAL_APP_URL:-http://127.0.0.1:3210}
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@127.0.0.1:${POSTGRES_HOST_PORT:-15432}/${LOBE_DB_NAME:-lobechat}
+      REDIS_URL: redis://127.0.0.1:${REDIS_HOST_PORT:-16379}
+      REDIS_PREFIX: ${REDIS_PREFIX:-lobechat}
+      REDIS_TLS: "0"
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://127.0.0.1:9000}
+      S3_BUCKET: ${RUSTFS_LOBE_BUCKET:-lobe}
+      S3_ENABLE_PATH_STYLE: ${S3_ENABLE_PATH_STYLE:-1}
+      S3_SET_ACL: ${S3_SET_ACL:-0}
+      S3_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      S3_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY}
+      LLM_VISION_IMAGE_USE_BASE64: "1"
+      SEARXNG_URL: http://127.0.0.1:${SEARXNG_HOST_PORT:-18080}
+      TZ: ${TZ:-Asia/Shanghai}
 
-  gpt-image-playground:
-    image: ghcr.io/cooksleep/gpt_image_playground:latest
-    container_name: gpt-image-playground
+  postgresql:
+    image: paradedb/paradedb:${PARADEDB_VERSION:-latest-pg17}
+    container_name: lobe-postgres
     restart: always
     logging: *default-logging
-    environment:
-      ENABLE_API_PROXY: "true"
-      LOCK_API_PROXY: "true"
-      API_PROXY_URL: http://newapi:3000/v1
-      DEFAULT_API_URL: https://${IMAGE_DOMAIN:-image.example.com}/api-proxy
-      IMAGE_SHARED_API_KEY: ${IMAGE_SHARED_API_KEY:-}
-    volumes:
-      - ./scripts/99-volans-autofill.sh:/docker-entrypoint.d/99-volans-autofill.sh:ro
-    expose:
-      - "80"
-    networks:
-      - ai-net
-    depends_on:
-      newapi:
-        condition: service_started
-
-  caddy-image:
-    image: caddy:${CADDY_VERSION:-2-alpine}
-    container_name: caddy-image
-    restart: always
-    logging: *default-logging
-    environment:
-      CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL}
-      IMAGE_DOMAIN: ${IMAGE_DOMAIN:-image.example.com}
-      IMAGE_BASIC_AUTH_USER: ${IMAGE_BASIC_AUTH_USER:-volans-image}
-      IMAGE_BASIC_AUTH_HASH: ${IMAGE_BASIC_AUTH_HASH}
     ports:
-      - "80:80"
-      - "443:443"
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-15432}:5432"
     volumes:
-      - ./Caddyfile.image:/etc/caddy/Caddyfile:ro
-      - ./caddy_logs:/var/log/caddy
-      - ./caddy_data:/data
-      - ./caddy_config:/config
+      - ./postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${LOBE_DB_NAME:-lobechat}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${TZ:-Asia/Shanghai}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     networks:
-      - ai-net
-    depends_on:
-      gpt-image-playground:
-        condition: service_started
+      - lobe-network
 
-  cloudflared:
-    image: cloudflare/cloudflared:${CLOUDFLARED_VERSION:-latest}
-    container_name: cloudflare-tunnel
+  redis:
+    image: redis:${REDIS_VERSION:-7-alpine}
+    container_name: lobe-redis
     restart: always
     logging: *default-logging
-    command: tunnel --no-autoupdate run
-    environment:
-      TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN}
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-16379}:6379"
+    command: redis-server --save 60 1000 --appendonly yes
+    volumes:
+      - ./redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks:
-      - ai-net
-      - xui_default
+      - lobe-network
+
+  rustfs:
+    image: rustfs/rustfs:${RUSTFS_VERSION:-latest}
+    container_name: lobe-rustfs
+    restart: always
+    logging: *default-logging
+    ports:
+      - "127.0.0.1:${RUSTFS_PORT:-9000}:9000"
+      - "127.0.0.1:${RUSTFS_ADMIN_PORT:-9001}:9001"
+    environment:
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - ./rustfs_data:/data
+    command: ["--access-key", "${RUSTFS_ACCESS_KEY}", "--secret-key", "${RUSTFS_SECRET_KEY}", "/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/health >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks:
+      - lobe-network
+
+  rustfs-init:
+    image: minio/mc:latest
+    container_name: lobe-rustfs-init
     depends_on:
-      - open-webui
-      - newapi
+      rustfs:
+        condition: service_healthy
+    volumes:
+      - ./bucket.config.json:/bucket.config.json:ro
+    entrypoint: /bin/sh
+    command: >-
+      -c 'set -eu;
+      mc alias set rustfs http://rustfs:9000 "$${RUSTFS_ACCESS_KEY}" "$${RUSTFS_SECRET_KEY}";
+      mc mb "rustfs/$${RUSTFS_LOBE_BUCKET}" --ignore-existing;
+      mc anonymous set-json /bucket.config.json "rustfs/$${RUSTFS_LOBE_BUCKET}"'
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      RUSTFS_LOBE_BUCKET: ${RUSTFS_LOBE_BUCKET:-lobe}
+    restart: "no"
+    networks:
+      - lobe-network
+
+  searxng:
+    image: searxng/searxng:${SEARXNG_VERSION:-latest}
+    container_name: lobe-searxng
+    restart: always
+    logging: *default-logging
+    ports:
+      - "127.0.0.1:${SEARXNG_HOST_PORT:-18080}:8080"
+    volumes:
+      - ./searxng-settings.yml:/etc/searxng/settings.yml:ro
+    environment:
+      SEARXNG_SETTINGS_FILE: /etc/searxng/settings.yml
+      SEARXNG_SECRET: ${SEARXNG_SECRET}
+      SEARXNG_BIND_ADDRESS: 0.0.0.0
+      SEARXNG_PORT: 8080
+      TZ: ${TZ:-Asia/Shanghai}
+    networks:
+      - lobe-network
+
+networks:
+  lobe-network:
+    driver: bridge

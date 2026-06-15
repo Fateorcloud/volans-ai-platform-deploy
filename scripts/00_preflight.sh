@@ -14,28 +14,25 @@ if [[ -f /etc/os-release ]]; then
   # shellcheck disable=SC1091
   source /etc/os-release
   log "Detected OS: ${PRETTY_NAME:-unknown}"
-  [[ "${ID:-}" == "ubuntu" ]] || warn "This project is designed for Ubuntu 22.04 LTS."
+  [[ "${ID:-}" == "ubuntu" ]] || warn "This project is designed for Ubuntu 22.04/24.04."
 else
   warn "/etc/os-release not found"
 fi
 
 for name in \
-  DB_USER DB_PASS NEWAPI_MASTER_KEY CF_TUNNEL_TOKEN WEBUI_SECRET_KEY \
-  OPENWEBUI_ENABLE_SIGNUP OPENWEBUI_DEFAULT_USER_ROLE \
-  IMAGE_BASIC_AUTH_HASH CADDY_ACME_EMAIL; do
+  DEPLOY_DIR KEY_VAULTS_SECRET AUTH_SECRET POSTGRES_PASSWORD \
+  RUSTFS_ACCESS_KEY RUSTFS_SECRET_KEY SEARXNG_SECRET; do
   require_env_not_placeholder "$name"
 done
 
-if [[ "${ENABLE_XUI:-true}" == "true" ]]; then
-  for name in XUI_ADMIN_USERNAME XUI_ADMIN_PASSWORD XUI_PANEL_PORT XUI_REALITY_PORT; do
-    require_env_not_placeholder "$name"
-  done
+if [[ "${LOBE_PORT:-3210}" != "3210" ]]; then
+  die "LOBE_PORT must stay 3210 in local-only host-network mode."
 fi
 
-if [[ "${ENABLE_NAT_PROXY:-true}" == "true" ]]; then
-  for name in NAT_SSH_HOST NAT_SSH_PORT NAT_SSH_USER NAT_SSH_KEY_PATH; do
-    require_env_present "$name"
-  done
+if [[ -n "${OPENAI_API_KEY:-}${ANTHROPIC_API_KEY:-}${GOOGLE_API_KEY:-}${DEEPSEEK_API_KEY:-}${OPENROUTER_API_KEY:-}" ]]; then
+  log "At least one model provider key is configured."
+else
+  warn "No model provider API key is configured yet. LobeHub can start, but model calls will fail until .env is filled."
 fi
 
 log "Preflight passed. Sensitive values were not printed."

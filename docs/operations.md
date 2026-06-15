@@ -1,93 +1,81 @@
 # 运维手册
 
+## 服务状态
+
+```bash
+cd /opt/lobehub
+docker compose ps
+docker compose logs -f lobehub
+docker compose logs -f lobe-postgres
+docker compose logs -f lobe-rustfs
+docker compose logs -f lobe-searxng
+```
+
 ## 验证
 
 ```bash
 sudo bash deploy.sh verify
-# 或
-sudo bash verify.sh
+# 或在已部署目录：
+sudo /opt/lobehub/scripts/healthcheck.sh
 ```
 
-重点看：
+验证脚本会检查：
 
 ```text
-postgres/newapi/open-webui healthy
-gpt-image-playground/caddy-image/cloudflare-tunnel running
-xui-3xui running
-7890 只监听 172.18.0.1 和 172.19.0.1
-Open WebUI enable_signup=true
-host direct 与 Docker via privoxy 是不同出口
-xui direct 与 xui via privoxy 是不同出口
+Compose 服务状态
+本机端口是否误绑到公网
+PostgreSQL、Redis、RustFS、SearXNG 基础健康
+LobeHub HTTP 入口
 ```
 
-## 主平台
+## 启停与更新
 
 ```bash
-cd /opt/Serve
-docker compose ps
-docker compose config --quiet
+cd /opt/lobehub
+docker compose pull
 docker compose up -d
-docker compose logs -f newapi
-docker compose logs -f open-webui
-docker compose logs -f caddy-image
-docker compose logs -f cloudflared
+docker compose restart lobehub
 ```
 
-## 3xui
+更新前建议先备份：
 
 ```bash
-cd /opt/Serve/xui
-docker compose ps
-docker compose config --quiet
-docker compose up -d --force-recreate xui
-docker compose logs -f xui
-docker port xui-3xui
-```
-
-## NAT 代理链
-
-```bash
-systemctl status nat-socks --no-pager
-systemctl status privoxy --no-pager
-systemctl status ai-proxy-firewall --no-pager
-
-systemctl restart nat-socks
-systemctl restart privoxy
-systemctl restart ai-proxy-firewall
+sudo bash /opt/lobehub/backup/lobehub_backup.sh
 ```
 
 ## 备份
 
-手动备份：
-
 ```bash
-sudo bash backup.sh
+sudo bash deploy.sh backup
 ```
 
-备份文件：
+默认输出：
 
 ```text
-/opt/Serve/backup/postgres_all_YYYY-MM-DD_HHMMSS.sql.gz
+/opt/lobehub/backup/postgres_lobechat_YYYY-MM-DD_HHMMSS.sql.gz
+/opt/lobehub/backup/rustfs_data_YYYY-MM-DD_HHMMSS.tar.gz
 ```
 
-## 修复代理
+Redis 使用 AOF 持久化，备份脚本会触发一次 `BGSAVE`。
 
-```bash
-sudo bash deploy.sh proxy --yes
-```
-
-这会重装或修复：
-
-```text
-nat-socks.service
-privoxy
-ai-proxy-firewall.service
-```
-
-## 修复项目文件
+## 修复模板文件
 
 ```bash
 sudo bash deploy.sh repair --yes
 ```
 
-此命令会保留已有 `.env` 和数据目录。
+该命令会重新渲染 compose、bucket policy、SearXNG 配置和健康检查脚本，但保留
+已有 `.env` 与数据目录。
+
+## 常用端口
+
+本机测试阶段这些端口必须只监听 `127.0.0.1`：
+
+```text
+3210  LobeHub
+9000  RustFS S3 API
+9001  RustFS console
+15432 PostgreSQL
+16379 Redis
+18080 SearXNG
+```

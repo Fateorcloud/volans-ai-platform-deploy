@@ -1,0 +1,24 @@
+use_default_settings: true
+
+general:
+  instance_name: "lobehub-local"
+  enable_metrics: false
+
+search:
+  safe_search: 0
+  default_lang: "auto"
+  formats:
+    - html
+    - json
+
+server:
+  bind_address: "0.0.0.0"
+  port: 8080
+  secret_key: "change-this-in-env"
+  limiter: false
+  public_instance: false
+  image_proxy: false
+  method: "POST"
+
+ui:
+  default_theme: simple

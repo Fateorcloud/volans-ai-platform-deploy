@@ -1,20 +1,18 @@
 # Security Policy
 
 This repository is designed to be public. Do not commit production secrets,
-server-specific credentials, database dumps, user lists, private keys, or
-backup archives.
+server-specific credentials, database dumps, user lists, private keys, or backup
+archives.
 
 ## Never Commit
 
 - `.env` or any filled environment file
-- Cloudflare Tunnel tokens
-- NewAPI/OpenAI-compatible tokens
-- Open WebUI secret keys
-- SSH private keys or NAT VPS credentials
-- Caddy Basic Auth plaintext passwords
-- 3xui database files, admin credentials, Reality private keys, client UUID lists
-- PostgreSQL, NewAPI, Open WebUI, Caddy, or 3xui data directories
-- Generated Mihomo/Clash client configs containing real UUIDs, IPs, or keys
+- Provider API keys, including OpenAI, Anthropic, Google, DeepSeek, OpenRouter,
+  Qwen, Moonshot, Mistral, Groq, Perplexity, and xAI
+- LobeHub secrets such as `KEY_VAULTS_SECRET` and `AUTH_SECRET`
+- PostgreSQL passwords, RustFS access keys, or SearXNG secrets
+- SSH private keys, known-hosts files, or server-specific notes
+- `postgres_data/`, `redis_data/`, `rustfs_data/`, or backup archives
 
 ## Before Publishing
 
@@ -29,27 +27,18 @@ rewriting the file to use placeholders instead of adding broad allow rules.
 
 ## Runtime Boundaries
 
-The expected public ports are:
+The first deployment phase is local-only. These ports should bind to
+`127.0.0.1`, not public interfaces:
 
 ```text
-SSH custom port
-80/tcp and 443/tcp for Caddy image site
-XUI_REALITY_PORT/tcp for the VLESS Reality node
+3210  LobeHub
+9000  RustFS S3 API
+9001  RustFS console
+15432 PostgreSQL
+16379 Redis
+18080 SearXNG
 ```
 
-These services must not be publicly reachable:
-
-```text
-NewAPI 3000
-Open WebUI 8080
-3xui panel port
-PostgreSQL 5432
-Privoxy 7890
-SSH SOCKS 10808
-```
-
-## Reporting
-
-For a public fork, open a private advisory if available. Otherwise, contact the
-repository owner privately and avoid posting live tokens, IP-bound credentials,
-or exploit details in public issues.
+Only your SSH port should be public during the local test phase. Publish LobeHub
+through a reverse proxy or Cloudflare Tunnel only after authentication and S3
+public endpoint behavior are deliberately configured.

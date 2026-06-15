@@ -2,7 +2,6 @@
 *.env
 *.key
 *.pem
-*.pub
 id_rsa*
 id_ed25519*
 known_hosts
@@ -21,15 +20,10 @@ known_hosts
 *credentials*
 config.yaml
 
-pg_data/
-newapi_data/
-open-webui_data/
-caddy_data/
-caddy_config/
-caddy_logs/
+postgres_data/
+redis_data/
+rustfs_data/
 backup/
-xui/db/
-xui/cert/
 
 __pycache__/
 .DS_Store

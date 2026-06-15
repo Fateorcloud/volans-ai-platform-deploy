@@ -13,14 +13,10 @@ scan_pattern() {
   output="$(
     find "$ROOT" \
       -path "$ROOT/.git" -prune -o \
-      -path "$ROOT/pg_data" -prune -o \
-      -path "$ROOT/newapi_data" -prune -o \
-      -path "$ROOT/open-webui_data" -prune -o \
-      -path "$ROOT/caddy_data" -prune -o \
-      -path "$ROOT/caddy_config" -prune -o \
-      -path "$ROOT/caddy_logs" -prune -o \
+      -path "$ROOT/postgres_data" -prune -o \
+      -path "$ROOT/redis_data" -prune -o \
+      -path "$ROOT/rustfs_data" -prune -o \
       -path "$ROOT/backup" -prune -o \
-      -path "$ROOT/xui" -prune -o \
       -type f \
       ! -name '*.zip' \
       ! -name '*.tgz' \
@@ -37,12 +33,12 @@ scan_pattern() {
   fi
 }
 
-scan_pattern "OpenAI/NewAPI-looking token" '(^|[^A-Za-z0-9_])(sk-[A-Za-z0-9_-]{20,})'
+scan_pattern "OpenAI-compatible token" '(^|[^A-Za-z0-9_])(sk-[A-Za-z0-9_-]{20,})'
 scan_pattern "GitHub token" '(ghp_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})'
 scan_pattern "Private key" 'BEGIN (OPENSSH|RSA|EC|DSA) PRIVATE KEY'
-scan_pattern "Cloudflare JWT-like tunnel token" 'eyJ[A-Za-z0-9_-]{30,}\.[A-Za-z0-9_-]{30,}\.[A-Za-z0-9_-]{20,}'
+scan_pattern "Cloudflare JWT-like token" 'eyJ[A-Za-z0-9_-]{30,}\.[A-Za-z0-9_-]{30,}\.[A-Za-z0-9_-]{20,}'
 scan_pattern "Production Volans domain" '(^|[^A-Za-z0-9.-])([A-Za-z0-9-]+\.)?volans\.one([^A-Za-z0-9.-]|$)'
-scan_pattern "Known production HK/NAT IP" '(203\.9\.150\.170|141\.239\.74\.52)'
+scan_pattern "Known production IP" '(203\.9\.150\.170|141\.239\.74\.52)'
 
 if [[ "$fail" -ne 0 ]]; then
   cat >&2 <<'MSG'
