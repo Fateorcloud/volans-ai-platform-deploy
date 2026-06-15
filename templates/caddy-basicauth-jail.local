@@ -1,4 +1,4 @@
-﻿[caddy-basicauth]
+[caddy-basicauth]
 enabled = true
 filter = caddy-basicauth
 logpath = /opt/Serve/caddy_logs/image-access.log

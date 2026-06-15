@@ -1,4 +1,4 @@
-﻿services:
+services:
   xui:
     image: ghcr.io/mhsanaei/3x-ui:${XUI_VERSION:-v3.0.2}
     container_name: xui-3xui

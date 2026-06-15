@@ -1,4 +1,4 @@
-﻿[Unit]
+[Unit]
 Description=Allow AI platform Docker containers to reach host Privoxy proxy
 After=ufw.service docker.service privoxy.service
 Wants=ufw.service docker.service privoxy.service

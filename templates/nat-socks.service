@@ -1,4 +1,4 @@
-﻿[Unit]
+[Unit]
 Description=SSH dynamic SOCKS tunnel to NAT VPS
 After=network-online.target
 Wants=network-online.target

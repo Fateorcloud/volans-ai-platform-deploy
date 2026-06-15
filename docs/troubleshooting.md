@@ -1,4 +1,4 @@
-﻿# 已知问题处理
+# 已知问题处理
 
 ## Open WebUI 没有注册入口
 
@@ -55,6 +55,32 @@ iptables -S INPUT | grep 7890
 ```bash
 sudo bash deploy.sh proxy
 ```
+
+## API 域名被 Cloudflare Access 拦截
+
+症状：
+
+```bash
+curl -I https://api.example.com/v1/models
+```
+
+返回 `302`，响应头里出现：
+
+```text
+Www-Authenticate: Cloudflare-Access
+Location: https://<team>.cloudflareaccess.com/...
+```
+
+原因：`api.example.com` 被放进了 Cloudflare Access Application。OpenAI SDK 和脚本调用通常只带 `Authorization: Bearer ...`，不会有浏览器登录 cookie，因此会被 Access 层拦截。
+
+修复：
+
+```text
+admin.example.com -> newapi:3000，加 Cloudflare Access
+api.example.com   -> newapi:3000，不加 Cloudflare Access
+```
+
+然后用 NewAPI token 自身的额度、分组、IP 白名单以及 Cloudflare WAF/rate limit 保护 API 域名。
 
 ## 7890 公网监听
 

@@ -11,7 +11,7 @@ The goal is simple: start from a fresh Ubuntu 22.04 VPS, fill `.env`, run one de
 Many self-hosted AI guides stop at "the WebUI is running". A real small-circle deployment needs more:
 
 - Users need a friendly chat entrypoint without seeing upstream API keys.
-- NewAPI admin pages must not be exposed directly to the public internet.
+- NewAPI admin pages must not be exposed directly to the public internet; the OpenAI-compatible API hostname must remain directly callable with Bearer tokens.
 - Open WebUI signup should be open but default to pending approval.
 - Upstream AI APIs should be able to exit through a NAT VPS while normal web and proxy traffic exits through the main VPS.
 - The image generation page may use a small shared token, but the entrypoint still needs Basic Auth and fail2ban protection.
@@ -23,7 +23,7 @@ This repository turns those constraints into a default-safe deployment skeleton.
 
 - **One-shot core deployment**: PostgreSQL, NewAPI, Open WebUI, Cloudflare Tunnel, GPT Image Playground, and Caddy.
 - **Small-circle user policy**: Open WebUI signup enabled, new users default to `pending`, admins approve users later.
-- **Protected admin gateways**: NewAPI and 3xui panel are published through Cloudflare Tunnel and protected by Cloudflare Access.
+- **Protected admin gateways**: the NewAPI admin hostname and 3xui panel are protected by Cloudflare Access; the API hostname is not.
 - **Split egress**: NewAPI upstream requests and 3xui AI-domain traffic can exit through a NAT VPS; normal traffic exits through the main VPS.
 - **Protected image site**: `image.example.com` uses Caddy HTTPS + Basic Auth, with fail2ban templates included.
 - **3xui Reality node**: panel is not publicly exposed, the Reality node uses a dedicated public port, and a Mihomo example config is included.
@@ -63,7 +63,8 @@ Not a good fit:
 
 ```text
 chat.example.com  -> Cloudflare Tunnel -> open-webui:8080
-api.example.com   -> Cloudflare Access -> Cloudflare Tunnel -> newapi:3000
+admin.example.com -> Cloudflare Access -> Cloudflare Tunnel -> newapi:3000
+api.example.com   -> Bearer token only -> Cloudflare Tunnel -> newapi:3000
 image.example.com -> DNS only -> Caddy 80/443 -> gpt-image-playground:80
 proxy.example.com -> Cloudflare Access -> Cloudflare Tunnel -> xui-3xui:12053
 
@@ -157,12 +158,14 @@ The scripts deploy server-side services only. Configure Cloudflare manually:
 ```text
 Tunnel Public Hostnames:
 chat.example.com  -> HTTP open-webui:8080
+admin.example.com -> HTTP newapi:3000
 api.example.com   -> HTTP newapi:3000
 proxy.example.com -> HTTP xui-3xui:12053
 
 Access:
 chat.example.com  no Access policy
-api.example.com   Access policy, admin email only
+admin.example.com Access policy, admin email only
+api.example.com   no Access policy; keep Authorization: Bearer calls working
 proxy.example.com Access policy, admin email only
 
 DNS:
@@ -239,6 +242,14 @@ docker run --rm --network ai-platform_ai-net curlimages/curl:8.10.1 \
 docker run --rm --network xui_default curlimages/curl:8.10.1 \
   -x http://172.19.0.1:7890 -4sS https://api.ipify.org
 ```
+
+## More Docs
+
+- [Deployment flow](docs/deployment.md)
+- [Operations](docs/operations.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Migration and trim runbook](docs/migration-and-trim.md)
+- [Open-source release notes](docs/open-source-release.md)
 
 ## Open Source Safety
 

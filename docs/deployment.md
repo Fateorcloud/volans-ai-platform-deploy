@@ -1,4 +1,4 @@
-﻿# 部署流程
+# 部署流程
 
 ## 1. 准备 `.env`
 
@@ -14,6 +14,7 @@ DB_PASS
 NEWAPI_MASTER_KEY
 CF_TUNNEL_TOKEN
 WEBUI_SECRET_KEY
+ADMIN_DOMAIN
 IMAGE_BASIC_AUTH_HASH
 XUI_ADMIN_PASSWORD
 NAT_SSH_HOST / NAT_SSH_PORT / NAT_SSH_USER / NAT_SSH_KEY_PATH
@@ -53,11 +54,22 @@ PostgreSQL 每日备份 cron
 ## 3. Cloudflare 手动配置
 
 ```text
-chat.example.com  -> HTTP open-webui:8080，不加 Access
-api.example.com   -> HTTP newapi:3000，加 Access，仅管理员邮箱
+chat.example.com  -> HTTP open-webui:8080，可不加 Access
+admin.example.com -> HTTP newapi:3000，加 Access，仅管理员邮箱
+api.example.com   -> HTTP newapi:3000，不加 Access，只靠 Bearer token
 proxy.example.com -> HTTP xui-3xui:12053，加 Access，仅管理员邮箱
-image.example.com -> DNS only / 灰云，A 到 HK VPS IP
+image.example.com -> DNS only / 灰云，A 到主 VPS IP
 ```
+
+`admin.example.com` 和 `api.example.com` 指向同一个 `newapi:3000` 容器，但访问策略不同。不要给 `api.example.com` 挂 Cloudflare Access，否则 OpenAI SDK、curl、MATLAB/Python 脚本只带 Bearer token 时会被 302/403 挡在 Cloudflare 登录层。
+
+部署后检查：
+
+```bash
+curl -I https://api.example.com/v1/models
+```
+
+如果响应里出现 `Www-Authenticate: Cloudflare-Access` 或跳转到 `cloudflareaccess.com`，说明 API hostname 仍然被 Access 保护，需要回到 Cloudflare Access Application 中拆分策略。
 
 ## 4. 3xui 手动配置
 
