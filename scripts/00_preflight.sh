@@ -25,6 +25,14 @@ for name in \
   require_env_not_placeholder "$name"
 done
 
+key_vault_bytes="$(printf '%s' "$KEY_VAULTS_SECRET" | base64 -d 2>/dev/null | wc -c | tr -d ' ')"
+case "$key_vault_bytes" in
+  16|24|32) ;;
+  *)
+    die "KEY_VAULTS_SECRET must be generated with: openssl rand -base64 32"
+    ;;
+esac
+
 if [[ "${LOBE_PORT:-3210}" != "3210" ]]; then
   die "LOBE_PORT must stay 3210 in local-only host-network mode."
 fi

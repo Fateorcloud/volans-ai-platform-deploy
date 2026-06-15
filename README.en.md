@@ -54,8 +54,11 @@ SEARXNG_SECRET
 Generate secrets with:
 
 ```bash
-openssl rand -hex 32
+# KEY_VAULTS_SECRET and AUTH_SECRET
 openssl rand -base64 32
+
+# POSTGRES_PASSWORD, RUSTFS_SECRET_KEY, and SEARXNG_SECRET can use hex
+openssl rand -hex 32
 ```
 
 Fill provider keys as needed:
