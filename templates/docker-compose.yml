@@ -29,6 +29,8 @@ services:
     environment:
       KEY_VAULTS_SECRET: ${KEY_VAULTS_SECRET}
       AUTH_SECRET: ${AUTH_SECRET}
+      HOSTNAME: 127.0.0.1
+      PORT: "3210"
       APP_URL: ${APP_URL:-http://127.0.0.1:3210}
       INTERNAL_APP_URL: ${INTERNAL_APP_URL:-http://127.0.0.1:3210}
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@127.0.0.1:${POSTGRES_HOST_PORT:-15432}/${LOBE_DB_NAME:-lobechat}
