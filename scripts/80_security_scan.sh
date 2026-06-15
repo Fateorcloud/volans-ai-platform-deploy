@@ -16,6 +16,7 @@ scan_pattern() {
       -path "$ROOT/postgres_data" -prune -o \
       -path "$ROOT/redis_data" -prune -o \
       -path "$ROOT/rustfs_data" -prune -o \
+      -path "$ROOT/rustfs_logs" -prune -o \
       -path "$ROOT/backup" -prune -o \
       -type f \
       ! -name '*.zip' \

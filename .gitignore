@@ -23,6 +23,7 @@ config.yaml
 postgres_data/
 redis_data/
 rustfs_data/
+rustfs_logs/
 backup/
 
 __pycache__/

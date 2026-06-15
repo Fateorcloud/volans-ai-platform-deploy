@@ -152,4 +152,4 @@ git status --short
 ```
 
 Do not commit real `.env`, API keys, server IPs, SSH keys, database directories,
-or backups.
+RustFS logs, or backups.

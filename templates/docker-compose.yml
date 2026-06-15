@@ -100,6 +100,7 @@ services:
       TZ: ${TZ:-Asia/Shanghai}
     volumes:
       - ./rustfs_data:/data
+      - ./rustfs_logs:/logs
     command: ["--access-key", "${RUSTFS_ACCESS_KEY}", "--secret-key", "${RUSTFS_SECRET_KEY}", "/data"]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9000/health >/dev/null 2>&1 || exit 1"]

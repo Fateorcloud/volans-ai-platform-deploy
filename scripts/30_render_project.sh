@@ -11,7 +11,8 @@ load_env
 DEPLOY_DIR="${DEPLOY_DIR:-/opt/lobehub}"
 log "Rendering LobeHub files into $DEPLOY_DIR"
 
-mkdir -p "$DEPLOY_DIR/backup"
+mkdir -p "$DEPLOY_DIR/backup" "$DEPLOY_DIR/rustfs_data" "$DEPLOY_DIR/rustfs_logs"
+chown -R 10001:10001 "$DEPLOY_DIR/rustfs_data" "$DEPLOY_DIR/rustfs_logs"
 
 install_template "$PROJECT_ROOT/templates/docker-compose.yml" "$DEPLOY_DIR/docker-compose.yml" 0644
 install_template "$PROJECT_ROOT/templates/bucket.config.json" "$DEPLOY_DIR/bucket.config.json" 0644

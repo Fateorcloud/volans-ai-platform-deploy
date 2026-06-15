@@ -21,7 +21,7 @@ Confirm the repository does not contain:
 - Real `KEY_VAULTS_SECRET`, `AUTH_SECRET`, PostgreSQL passwords, RustFS keys,
   or SearXNG secrets.
 - SSH private keys, public keys, or known-hosts files.
-- `postgres_data/`, `redis_data/`, `rustfs_data/`, or backup archives.
+- `postgres_data/`, `redis_data/`, `rustfs_data/`, `rustfs_logs/`, or backup archives.
 - Private deployment notes.
 
 ## Suggested Release Commands

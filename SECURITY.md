@@ -12,7 +12,7 @@ archives.
 - LobeHub secrets such as `KEY_VAULTS_SECRET` and `AUTH_SECRET`
 - PostgreSQL passwords, RustFS access keys, or SearXNG secrets
 - SSH private keys, known-hosts files, or server-specific notes
-- `postgres_data/`, `redis_data/`, `rustfs_data/`, or backup archives
+- `postgres_data/`, `redis_data/`, `rustfs_data/`, `rustfs_logs/`, or backup archives
 
 ## Before Publishing
 

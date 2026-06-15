@@ -171,4 +171,4 @@ bash deploy.sh security-scan
 git status --short
 ```
 
-不要提交真实 `.env`、API key、服务器 IP、SSH key、数据库目录或备份包。
+不要提交真实 `.env`、API key、服务器 IP、SSH key、数据库目录、RustFS 日志或备份包。
