@@ -1,0 +1,14 @@
+[Unit]
+Description=Allow AI platform Docker containers to reach host proxy
+After=ufw.service docker.service privoxy.service clash.service mihomo.service
+Wants=ufw.service docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/opt/Serve/.env
+ExecStart=/opt/Serve/systemd/ai-proxy-firewall.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

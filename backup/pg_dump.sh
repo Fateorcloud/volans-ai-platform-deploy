@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Daily PostgreSQL logical backup for the ai-platform stack.
 # Usage (crontab):
-#   0 3 * * * /opt/ai-platform/backup/pg_dump.sh >> /var/log/pgdump.log 2>&1
+#   0 3 * * * /opt/Serve/backup/pg_dump.sh >> /var/log/pgdump.log 2>&1
 #
 # Optional offsite upload: set RCLONE_REMOTE to something like "r2:ai-backup"
 # and install rclone. Empty = local-only.
 
 set -euo pipefail
 
-STACK_DIR="${STACK_DIR:-/opt/ai-platform}"
+STACK_DIR="${STACK_DIR:-/opt/Serve}"
 BACKUP_DIR="${BACKUP_DIR:-${STACK_DIR}/backup}"
 RETAIN_DAYS="${RETAIN_DAYS:-14}"
 RCLONE_REMOTE="${RCLONE_REMOTE:-}"

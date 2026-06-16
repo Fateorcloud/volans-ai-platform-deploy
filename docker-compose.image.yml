@@ -1,0 +1,54 @@
+services:
+  gpt-image-playground:
+    image: ghcr.io/cooksleep/gpt_image_playground:${GPT_IMAGE_PLAYGROUND_VERSION:-latest}
+    container_name: gpt-image-playground
+    restart: always
+    profiles: ["image"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+    environment:
+      ENABLE_API_PROXY: "true"
+      LOCK_API_PROXY: "true"
+      API_PROXY_URL: http://newapi:3000/v1
+      DEFAULT_API_URL: ${IMAGE_PUBLIC_API_PROXY_URL:-https://image.example.com/api-proxy}
+      IMAGE_SHARED_API_KEY: ${IMAGE_SHARED_API_KEY}
+    volumes:
+      - ./scripts/99-volans-autofill.sh:/docker-entrypoint.d/99-volans-autofill.sh:ro
+    expose:
+      - "80"
+    networks:
+      - ai-net
+    depends_on:
+      newapi:
+        condition: service_started
+
+  caddy-image:
+    image: caddy:${CADDY_VERSION:-2-alpine}
+    container_name: caddy-image
+    restart: always
+    profiles: ["image"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+    ports:
+      - "${IMAGE_HTTP_PORT:-80}:80"
+      - "${IMAGE_HTTPS_PORT:-443}:443"
+    environment:
+      IMAGE_HOSTNAME: ${IMAGE_HOSTNAME:-image.example.com}
+      IMAGE_BASIC_AUTH_USER: ${IMAGE_BASIC_AUTH_USER:-volans-image}
+      IMAGE_BASIC_AUTH_HASH: ${IMAGE_BASIC_AUTH_HASH}
+    volumes:
+      - ./Caddyfile.image:/etc/caddy/Caddyfile:ro
+      - ./caddy_logs:/var/log/caddy
+      - ./caddy_data:/data
+      - ./caddy_config:/config
+    networks:
+      - ai-net
+    depends_on:
+      gpt-image-playground:
+        condition: service_started

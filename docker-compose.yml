@@ -3,12 +3,24 @@ name: ai-platform
 networks:
   ai-net:
     driver: bridge
+    ipam:
+      config:
+        - subnet: ${AI_NET_SUBNET:-172.18.0.0/16}
+          gateway: ${AI_NET_GATEWAY:-172.18.0.1}
 
 x-logging: &default-logging
   driver: json-file
   options:
     max-size: "50m"
     max-file: "3"
+
+x-proxy-env: &proxy-env
+  HTTP_PROXY: http://host.docker.internal:7890
+  HTTPS_PROXY: http://host.docker.internal:7890
+  NO_PROXY: localhost,127.0.0.1,.local,postgres,newapi,open-webui,playwright,172.16.0.0/12,10.0.0.0/8
+  http_proxy: http://host.docker.internal:7890
+  https_proxy: http://host.docker.internal:7890
+  no_proxy: localhost,127.0.0.1,.local,postgres,newapi,open-webui,playwright,172.16.0.0/12,10.0.0.0/8
 
 services:
   postgres:
@@ -23,6 +35,8 @@ services:
     volumes:
       - ./pg_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    expose:
+      - "5432"
     networks:
       - ai-net
     healthcheck:
@@ -31,10 +45,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
-    deploy:
-      resources:
-        limits:
-          memory: 1G
 
   newapi:
     image: calciumion/new-api:${NEWAPI_VERSION:-latest}
@@ -42,15 +52,16 @@ services:
     restart: always
     logging: *default-logging
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "host.docker.internal:${AI_NET_GATEWAY:-172.18.0.1}"
     environment:
+      <<: *proxy-env
       SQL_DSN: postgresql://${DB_USER}:${DB_PASS}@postgres:5432/newapi_db
       TZ: Asia/Shanghai
-      HTTP_PROXY: http://host.docker.internal:7890
-      HTTPS_PROXY: http://host.docker.internal:7890
-      NO_PROXY: localhost,127.0.0.1,.local,postgres,newapi,open-webui,playwright,172.16.0.0/12,10.0.0.0/8
+      GODEBUG: http2client=0
     volumes:
       - ./newapi_data:/data
+    expose:
+      - "3000"
     networks:
       - ai-net
     depends_on:
@@ -62,10 +73,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
-    deploy:
-      resources:
-        limits:
-          memory: 512M
 
   open-webui:
     image: ghcr.io/open-webui/open-webui:${OPENWEBUI_VERSION:-main}
@@ -73,29 +80,43 @@ services:
     restart: always
     logging: *default-logging
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "host.docker.internal:${AI_NET_GATEWAY:-172.18.0.1}"
     environment:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASS}@postgres:5432/openwebui_db
+
       OPENAI_API_BASE_URL: http://newapi:3000/v1
       OPENAI_API_KEY: ${NEWAPI_MASTER_KEY}
-      ENABLE_RAG_WEB_SEARCH: "True"
-      RAG_WEB_SEARCH_ENGINE: duckduckgo
-      RAG_EMBEDDING_ENGINE: openai
-      RAG_OPENAI_API_BASE_URL: http://newapi:3000/v1
-      RAG_OPENAI_API_KEY: ${NEWAPI_MASTER_KEY}
-      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-text-embedding-3-large}
-      RAG_RERANKING_MODEL: ${RAG_RERANKING_MODEL:-}
-      # Built-in lightweight web fetcher; 4GB host stays comfortable.
-      # Upgrade to playwright sidecar only if JS-heavy pages are needed.
-      WEB_LOADER_ENGINE: ${WEB_LOADER_ENGINE:-safe_web}
-      PLAYWRIGHT_WS_URL: ${PLAYWRIGHT_WS_URL:-}
+
+      ENABLE_PERSISTENT_CONFIG: ${OPENWEBUI_ENABLE_PERSISTENT_CONFIG:-False}
+      ENABLE_SIGNUP: ${OPENWEBUI_ENABLE_SIGNUP:-true}
+      DEFAULT_USER_ROLE: ${OPENWEBUI_DEFAULT_USER_ROLE:-pending}
+      ENABLE_SIGNUP_PASSWORD_CONFIRMATION: ${OPENWEBUI_ENABLE_SIGNUP_PASSWORD_CONFIRMATION:-true}
+      ENABLE_DIRECT_CONNECTIONS: ${OPENWEBUI_ENABLE_DIRECT_CONNECTIONS:-false}
+      ENABLE_API_KEYS: ${OPENWEBUI_ENABLE_API_KEYS:-false}
+      USER_PERMISSIONS_FEATURES_API_KEYS: ${OPENWEBUI_USER_PERMISSIONS_FEATURES_API_KEYS:-false}
+      BYPASS_MODEL_ACCESS_CONTROL: ${OPENWEBUI_BYPASS_MODEL_ACCESS_CONTROL:-false}
+      PENDING_USER_OVERLAY_TITLE: ${OPENWEBUI_PENDING_USER_OVERLAY_TITLE:-Account pending review}
+      PENDING_USER_OVERLAY_CONTENT: ${OPENWEBUI_PENDING_USER_OVERLAY_CONTENT:-Your account is waiting for administrator approval.}
+
+      ENABLE_WEB_SEARCH: ${OPENWEBUI_ENABLE_WEB_SEARCH:-true}
+      WEB_SEARCH_ENGINE: ${OPENWEBUI_WEB_SEARCH_ENGINE:-duckduckgo}
+      BRAVE_SEARCH_API_KEY: ${OPENWEBUI_BRAVE_SEARCH_API_KEY:-}
+      WEB_SEARCH_RESULT_COUNT: ${OPENWEBUI_WEB_SEARCH_RESULT_COUNT:-3}
+      WEB_SEARCH_CONCURRENT_REQUESTS: ${OPENWEBUI_WEB_SEARCH_CONCURRENT_REQUESTS:-1}
+      WEB_LOADER_ENGINE: ${OPENWEBUI_WEB_LOADER_ENGINE:-safe_web}
+      WEB_LOADER_CONCURRENT_REQUESTS: ${OPENWEBUI_WEB_LOADER_CONCURRENT_REQUESTS:-3}
+      BYPASS_WEB_SEARCH_WEB_LOADER: ${OPENWEBUI_BYPASS_WEB_SEARCH_WEB_LOADER:-false}
+      BYPASS_WEB_SEARCH_EMBEDDING_AND_RETRIEVAL: ${OPENWEBUI_BYPASS_WEB_SEARCH_EMBEDDING_AND_RETRIEVAL:-false}
+      USER_PERMISSIONS_FEATURES_WEB_SEARCH: ${OPENWEBUI_USER_PERMISSIONS_FEATURES_WEB_SEARCH:-true}
       PERSONAL_BROWSER_HEADLESS: "true"
-      HTTP_PROXY: http://host.docker.internal:7890
-      HTTPS_PROXY: http://host.docker.internal:7890
-      NO_PROXY: localhost,127.0.0.1,.local,postgres,newapi,open-webui,playwright,172.16.0.0/12,10.0.0.0/8
+
+      WEBUI_URL: ${WEBUI_URL}
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
       TZ: Asia/Shanghai
     volumes:
       - ./open-webui_data:/app/backend/data
+    expose:
+      - "8080"
     networks:
       - ai-net
     depends_on:
@@ -103,34 +124,6 @@ services:
         condition: service_healthy
       newapi:
         condition: service_started
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-
-  # Optional Playwright sidecar for rendering JS-heavy pages during RAG web crawl.
-  # Enable with: docker compose --profile browser up -d
-  # Then set WEB_LOADER_ENGINE=playwright and PLAYWRIGHT_WS_URL=ws://playwright:3000 in .env
-  playwright:
-    image: browserless/chrome:${BROWSERLESS_VERSION:-latest}
-    container_name: playwright
-    restart: always
-    profiles: ["browser"]
-    logging: *default-logging
-    environment:
-      CONNECTION_TIMEOUT: 60000
-      MAX_CONCURRENT_SESSIONS: 3
-      HTTP_PROXY: http://host.docker.internal:7890
-      HTTPS_PROXY: http://host.docker.internal:7890
-      NO_PROXY: localhost,127.0.0.1,.local,postgres,newapi,open-webui,playwright,172.16.0.0/12,10.0.0.0/8
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    networks:
-      - ai-net
-    deploy:
-      resources:
-        limits:
-          memory: 1G
 
   cloudflared:
     image: cloudflare/cloudflared:${CLOUDFLARED_VERSION:-latest}
@@ -145,3 +138,21 @@ services:
     depends_on:
       - open-webui
       - newapi
+
+  # Optional Playwright sidecar for JS-heavy web pages.
+  # Enable with:
+  #   docker compose --profile browser up -d playwright
+  playwright:
+    image: browserless/chrome:${BROWSERLESS_VERSION:-latest}
+    container_name: playwright
+    restart: always
+    profiles: ["browser"]
+    logging: *default-logging
+    environment:
+      CONNECTION_TIMEOUT: 60000
+      MAX_CONCURRENT_SESSIONS: 3
+      <<: *proxy-env
+    extra_hosts:
+      - "host.docker.internal:${AI_NET_GATEWAY:-172.18.0.1}"
+    networks:
+      - ai-net

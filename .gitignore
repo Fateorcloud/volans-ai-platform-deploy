@@ -1,14 +1,27 @@
 # Secrets
 .env
+.env.*
+!.env.example
+*PRIVATE*.md
+*Private*.md
+AUTO-DEPLOY-PRIVATE.md
+docker-compose-S.yml
 
 # Container data volumes
 pg_data/
 newapi_data/
 open-webui_data/
+caddy_data/
+caddy_config/
+caddy_logs/
+xui/db/
+xui/cert/
 
 # Backups
 backup/*.sql
 backup/*.sql.gz
+server-backups/
+clash-work/
 
 # OS / editor
 .DS_Store

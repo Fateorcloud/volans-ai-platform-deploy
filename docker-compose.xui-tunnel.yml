@@ -1,0 +1,9 @@
+networks:
+  xui_default:
+    external: true
+
+services:
+  cloudflared:
+    networks:
+      - ai-net
+      - xui_default

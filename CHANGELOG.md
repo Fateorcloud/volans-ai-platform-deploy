@@ -4,6 +4,111 @@
 
 ---
 
+## 2026-06-15 — 部署模板整理与公开/私有文档分层
+
+### 背景
+
+线上部署已经从最初的核心四容器演化为核心 AI 平台、可选图片站、可选 xui、独立 notes 站共存。为了后续裁剪服务器，并确保项目能在另一台服务器直接部署，本次把仓库重新整理成可迁移模板。
+
+### 本次落地
+
+- `docker-compose.yml` 收敛为默认核心栈：PostgreSQL、NewAPI、Open WebUI、cloudflared，以及可选 Playwright profile。
+- 新增 `docker-compose.image.yml`，把图片 playground + Caddy 图片站拆成显式 `image` profile。
+- 新增 `xui/docker-compose.yml` 与 `docker-compose.xui-tunnel.yml`，xui 变成独立可选栈，不再让核心部署依赖外部 `xui_default` 网络。
+- 新增 `systemd/ai-proxy-firewall.service` 与脚本，只允许 Docker 网桥访问宿主机代理端口。
+- `scripts/install-server.sh` 改为新服务器 bootstrap：安装 Docker、同步到 `/opt/Serve`、安装备份 cron、代理探活 cron、代理防火墙 service，并生成 `.env` 模板。
+- `.env.example` 扩展为核心必填、WebUI 治理、Web 搜索、Cloudflare、可选图片站、可选 xui、版本 pin 分区。
+- 新增 `AUTO-DEPLOY-PUBLIC.md` 作为 GitHub 安全的自动部署文档。
+- 新增 `AUTO-DEPLOY-PRIVATE.md` 作为本机私有部署记录，并通过 `.gitignore` 排除。
+- 公开文档中的真实域名、服务器 IP、本地路径已替换为 `example.com`、`<server-public-ip>`、`<local-repo-path>` 等占位符。
+
+### 当前注意事项
+
+- 公开 GitHub 文档只描述推荐目标态：`admin.*` 走 Cloudflare Access，`api.*` 不走 Access、只靠 Bearer token。
+- 如果某台现有服务器上 `api.*` 仍被 Cloudflare Access 保护，应先按私有 runbook 记录为偏差，再决定是否修复。
+- 备份链要以 `backup/pg_dump.sh` 的逻辑备份和恢复演练为准，不要只依赖宿主机目录存在。
+
+---
+
+## 2026-04-28 — 小圈邀请制与 A 方案单 Token 治理
+
+### 背景
+
+平台已从“管理员自用已跑通”进入“小圈邀请制”阶段。生产配置以香港服务器 `/opt/Serve` 为准，本地仓库只同步模板、手册和 SOP，避免本地旧配置反向污染服务器。
+
+### 本次落地
+
+- Open WebUI 注册策略改为：允许注册，但默认 `pending`，必须管理员批准后加入用户组。
+- 实测发现 Open WebUI 用户组本身不能直接绑定不同 NewAPI token；root 个人 token 也不会自动继承给用户组。
+- 令牌策略最终调整为 A 方案：单 Open WebUI + 一个全局 NewAPI token。
+- Open WebUI 连接策略：全局 OpenAI-compatible 连接统一指向 `http://newapi:3000/v1`，使用 `NEWAPI_MASTER_KEY`。
+- 用户组只用于账号审核、功能权限、知识库/提示词/工具/分享等能力控制；不再承诺按用户组自动切换 NewAPI token。
+- 如果未来需要严格分账，再升级为 B 方案（多 Open WebUI 实例）或 C 方案（token broker）。
+- 图片生成状态改为已解决：Open WebUI 图片生成设置中使用单独图片 token，正确请求路径应为 `/v1/images/generations`。
+- 本地 `docker-compose.yml` / `docker-compose-S.yml` 收敛到服务器最终代理方案：`host.docker.internal:172.18.0.1`，`newapi` 保留 `GODEBUG=http2client=0`。
+
+### 关键安全取舍
+
+- Clash 不再推荐监听 `0.0.0.0:7890` 或 `*:7890`。
+- 最终方案是宿主机 Clash 只监听 `172.18.0.1:7890`，并通过 iptables 只放行 Docker 网桥访问。
+- `admin.example.com` 继续使用 Cloudflare Access 邮箱验证码保护；`api.example.com` 不挂 Access，只靠 NewAPI Bearer token 和 NewAPI 侧权限/额度限制。
+
+### 待服务器执行
+
+- [ ] 在 `/opt/Serve/docker-compose.yml` 的 `open-webui.environment` 加入注册/权限环境变量。
+- [ ] `docker compose config --quiet`
+- [ ] `docker compose up -d --force-recreate open-webui`
+- [ ] 在 Open WebUI 后台确认注册、Direct Connections、API Keys、模型访问控制开关。
+- [ ] 在 Open WebUI 后台确认测试用户已从 `pending` 改为 `user`，并加入正确用户组。
+
+---
+
+## 2026-04-25 — 香港服务器实机部署 + 域名上线 + 密钥轮换
+
+### 背景
+
+把本地 `<local-repo-path>` 方案部署到香港 Ubuntu 22.04.3 服务器（`/opt/Serve`），完成 Docker 栈、宿主机代理、Cloudflare Tunnel、NewAPI、Open WebUI 的端到端上线。
+
+### 实际完成
+
+- 服务器一键安装 Ubuntu 22.04.3 LTS，解决初始 `(initramfs)` 启动失败问题。
+- 安装 Docker Engine `29.4.1` 与 Docker Compose `v5.1.3`。
+- 上传并启动 `/opt/Serve`，`postgres`、`newapi`、`open-webui`、`cloudflared` 均已运行。
+- 配置 Cloudflare Tunnel `example-tunnel`，三条 hostname 已生效：
+  - `admin.example.com` → `http://newapi:3000`
+  - `api.example.com` → `http://newapi:3000`
+  - `chat.example.com` → `http://open-webui:8080`
+- 给 `admin.example.com` 启用 Cloudflare Access 邮箱一次性验证码；`api.example.com` 保持无 Access，只靠 NewAPI Bearer token。
+- 安装并托管 Mihomo/Clash。早期曾监听 `*:7890`，后续已修正为 `172.18.0.1:7890`，容器通过 `host.docker.internal:7890` 出站。
+- 完成 Clash 订阅链接轮换、Cloudflare Tunnel token 轮换、NewAPI 调用 token 轮换。
+- 公网 API 已验证：`https://api.example.com/v1/chat/completions` 调用 `deepseek-v4-pro` 成功返回。
+
+### 关键排障结论
+
+- `7890` 是代理端口，不是网页后台；浏览器打不开属于正常现象。最终安全配置只监听 `172.18.0.1:7890`。
+- NewAPI 的 `DeepSeek` 专用渠道类型在当前版本会向 DeepSeek 返回上游 `Bad Request`；实测应使用 `OpenAI` 兼容类型。
+- DeepSeek 渠道配置为：
+  - 类型：`OpenAI`
+  - API 地址：`https://api.deepseek.com`
+  - 模型：优先 `deepseek-v4-pro`，按需添加 `deepseek-reasoner` / `deepseek-chat`
+- `newapi` 经代理访问 DeepSeek 时遇到过 `malformed HTTP response`，通过在 `newapi.environment` 添加 `GODEBUG=http2client=0` 并 force recreate 规避。
+- `deepseek-v4-flash` 通过 API 返回 `model_not_found` 时，不是公网链路故障，而是 NewAPI 渠道模型列表或 `default` 分组未开放该模型。
+
+### 安全状态
+
+- `.env`、NewAPI token、Cloudflare Tunnel token、Clash 订阅链接均不应提交到 git。
+- 本次对话中曾贴出过调用 token、Tunnel token、Clash 订阅链接，已按“视为泄露”原则完成轮换。
+- 服务商安全组应继续保持：不要公网开放 `7890`、`3000`、`8080`、`5432`。
+
+### 后续建议
+
+- [ ] 启用 `backup/pg_dump.sh` 每日备份，并确认备份文件可恢复。
+- [ ] 启用 `systemd/proxy-healthcheck.sh` 定时探活 Clash。
+- [ ] 在 Open WebUI 里只暴露 3-6 个精选模型，用中文模型预设降低模型列表复杂度。
+- [ ] 将 `NEWAPI_VERSION`、`OPENWEBUI_VERSION`、`CLOUDFLARED_VERSION` 从 `latest/main` 锁到实测稳定 tag。
+
+---
+
 ## 2026-04-23 — 初版方案评审 + 首次决策回填
 
 ### 背景
@@ -16,7 +121,7 @@
 
 | ID   | 问题                                                 | 修复方案                                                                 |
 | ---- | ---------------------------------------------------- | ------------------------------------------------------------------------ |
-| B1   | `HTTP_PROXY=http://172.17.0.1:7890` 在自定义网桥不通 | 改用 `host.docker.internal:host-gateway` + `extra_hosts`                 |
+| B1   | `HTTP_PROXY=http://172.17.0.1:7890` 在自定义网桥不通 | 初版改用 `host-gateway`；实机最终固定为 `host.docker.internal:172.18.0.1` |
 | B2   | `SQL_DSN` 缺 `postgresql://` 前缀，被当 MySQL 解析   | 加前缀                                                                   |
 | B3   | 未显式创建 `newapi_db` / `openwebui_db`              | 写 `init.sql`，`POSTGRES_USER` 入口自动执行                              |
 | B4   | `NEWAPI_MASTER_KEY` 鸡生蛋                           | README 规范化：先起 NewAPI → 登录建令牌 → 回填 .env → compose up -d 重建 |
@@ -70,7 +175,7 @@ CHANGELOG.md                       # 本文件
 
 - [ ] `.env` 真实密钥是否已填且强度足够（DB_PASS 建议 32 字符随机）
 - [ ] Cloudflare Tunnel token 是否绑定到正确的账号 / zone
-- [ ] 宿主机 Clash 配置是否真正监听 `0.0.0.0:7890`（`ss -tlnp | grep 7890`）
+- [ ] 宿主机 Clash 配置是否只监听 `172.18.0.1:7890`（`ss -lntup | grep 7890`）
 - [ ] 镜像版本是否需要从 `latest` / `main` 锁定到具体 tag（目前 `.env.example` 给的是 placeholder）
 - [ ] 是否需要启用 `--profile browser`（建议第一周先不开，观察内存曲线）
 - [ ] 域名 DNS 是否全部指到 Cloudflare 名字服务器，CF Access 策略是否只对 `admin.*` 生效
@@ -82,11 +187,11 @@ CHANGELOG.md                       # 本文件
 ```bash
 # 0. 宿主机
 sudo systemctl status clash               # active (running)
-curl -x http://127.0.0.1:7890 -I https://www.gstatic.com/generate_204  # HTTP/2 204
-ss -tlnp | grep 7890                      # 监听 *:7890 或 0.0.0.0:7890
+curl -x http://172.18.0.1:7890 -I http://www.gstatic.com/generate_204  # HTTP/1.1 204
+ss -lntup | grep 7890                     # 只应看到 172.18.0.1:7890，不应看到 *:7890
 
 # 1. 栈
-cd /opt/ai-platform
+cd /opt/Serve
 docker compose config --quiet             # 无 error
 docker compose up -d postgres newapi
 docker compose ps                         # postgres healthy，newapi healthy

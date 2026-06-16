@@ -1,5 +1,5 @@
 [Unit]
-Description=Clash Proxy (host-side, exposes 0.0.0.0:7890 for Docker containers)
+Description=Clash/Mihomo Proxy (host-side, bind to Docker gateway only)
 After=network-online.target
 Wants=network-online.target
 

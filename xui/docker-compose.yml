@@ -1,0 +1,22 @@
+name: xui
+
+services:
+  xui:
+    image: ghcr.io/mhsanaei/3x-ui:${XUI_VERSION:-v3.0.2}
+    container_name: xui-3xui
+    restart: unless-stopped
+    tty: true
+    expose:
+      - "12053"
+    ports:
+      - "${XUI_REALITY_PORT:-31444}:31444/tcp"
+    volumes:
+      - ./db:/etc/x-ui
+      - ./cert:/root/cert
+    environment:
+      XRAY_VMESS_AEAD_FORCED: "false"
+    cpus: ${XUI_CPUS:-0.75}
+    mem_limit: ${XUI_MEMORY_LIMIT:-512m}
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
