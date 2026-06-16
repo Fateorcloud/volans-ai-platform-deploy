@@ -1,5 +1,8 @@
 .env
 *.env
+AUTO-DEPLOY-PRIVATE.md
+CONTEXT.md
+docker-compose-S.yml
 *.key
 *.pem
 id_rsa*
@@ -25,6 +28,8 @@ redis_data/
 rustfs_data/
 rustfs_logs/
 backup/
+server-backups/
+clash-work/
 
 __pycache__/
 .DS_Store
