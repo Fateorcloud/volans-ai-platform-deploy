@@ -57,7 +57,31 @@ Docker CE
 执行本机端口和服务健康检查
 ```
 
-## 3. 本机访问
+## 3. 可选 xui/NAT 网络组件
+
+默认 AI 平台只有 LobeHub。xui/NAT 被保留为独立网络层，需要显式开启：
+
+```env
+ENABLE_XUI=true
+ENABLE_NAT_PROXY=true
+```
+
+然后按需执行：
+
+```bash
+sudo bash deploy.sh xui --yes
+sudo bash deploy.sh nat-proxy --yes
+```
+
+或者一次执行：
+
+```bash
+sudo bash deploy.sh network --yes
+```
+
+这些命令不会安装 NewAPI、Open WebUI 或图站。
+
+## 4. 本机访问
 
 在本地电脑执行：
 
@@ -83,7 +107,7 @@ ssh -L 9001:127.0.0.1:9001 <server-alias>
 http://127.0.0.1:9001
 ```
 
-## 4. 验证
+## 5. 验证
 
 ```bash
 sudo bash deploy.sh verify
@@ -98,7 +122,7 @@ PostgreSQL / Redis / RustFS 健康检查通过
 http://127.0.0.1:3210 返回 HTTP 响应
 ```
 
-## 5. 后续公网发布
+## 6. 后续公网发布
 
 第一阶段不配置公网入口。准备发布时再做：
 

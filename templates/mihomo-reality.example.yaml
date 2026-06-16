@@ -1,0 +1,45 @@
+mixed-port: 7890
+allow-lan: false
+mode: rule
+log-level: info
+ipv6: false
+
+dns:
+  enable: true
+  listen: 127.0.0.1:1053
+  ipv6: false
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+  fallback:
+    - 1.1.1.1
+    - 8.8.8.8
+
+proxies:
+  - name: Reality-Split
+    type: vless
+    server: <VPS_IP_OR_DOMAIN>
+    port: <REALITY_PORT>
+    uuid: <VLESS_CLIENT_UUID>
+    network: tcp
+    tls: true
+    udp: true
+    servername: <REALITY_SERVER_NAME>
+    client-fingerprint: chrome
+    reality-opts:
+      public-key: <REALITY_PUBLIC_KEY>
+      short-id: <REALITY_SHORT_ID>
+
+proxy-groups:
+  - name: PROXY
+    type: select
+    proxies:
+      - Reality-Split
+      - DIRECT
+
+rules:
+  - IP-CIDR,<VPS_IP>/32,DIRECT,no-resolve
+  - GEOIP,LAN,DIRECT
+  - MATCH,PROXY

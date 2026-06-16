@@ -6,9 +6,10 @@
 `LobeHub + PostgreSQL/PGVector + Redis + RustFS/S3 + SearXNG`，第一阶段只做
 服务器本机访问测试，不默认发布公网域名。
 
-旧的 NewAPI、Open WebUI、Cloudflare Tunnel、GPT Image Playground、Caddy 图站、
-xui 和 NAT 出站代理不再是默认组件。它们可以作为历史系统保留用于回滚，但新的部署
-模板不会再创建或依赖这些服务。
+旧的 NewAPI、Open WebUI、GPT Image Playground、Caddy 图站不再属于当前项目。
+这套旧链路已经备份在 GitHub 分支 `codex/legacy-ai-stack-backup`，需要复用时从该
+分支恢复。xui 和 NAT 出站代理被保留为独立可选网络组件，但不属于 LobeHub AI 平台
+核心栈，默认部署不会安装。
 
 ## 架构
 
@@ -23,6 +24,10 @@ LobeHub
   -> 127.0.0.1:9000  RustFS
   -> 127.0.0.1:18080 SearXNG
   -> provider APIs configured in .env
+
+Optional network components
+  -> xui side stack, installed only by deploy.sh xui
+  -> NAT egress proxy, installed only by deploy.sh nat-proxy
 ```
 
 LobeHub 容器使用 host network，是为了让 `S3_ENDPOINT=http://127.0.0.1:9000`
@@ -36,8 +41,9 @@ LobeHub 容器使用 host network，是为了让 `S3_ENDPOINT=http://127.0.0.1:9
 - 你希望接入 OpenAI、Anthropic、Google/Gemini、DeepSeek、OpenRouter 等供应商。
 - 你希望将来能把 `/opt/lobehub`、`.env` 和备份复制到另一台服务器恢复。
 
-不适合：需要商业计费、复杂团队权限、API 网关计量、xui 代理节点或工作流应用平台的
-场景。那些需求应另行选 LibreChat、LiteLLM、Dify 或独立代理系统。
+不适合：需要商业计费、复杂团队权限、API 网关计量或工作流应用平台的场景。那些需求
+应另行选 LibreChat、LiteLLM 或 Dify。xui/NAT 只作为独立网络层保留，不参与 AI 平台
+的模型管理。
 
 ## 快速部署
 
@@ -110,6 +116,16 @@ sudo bash deploy.sh backup
 sudo bash deploy.sh repair --yes
 ```
 
+可选网络组件需要显式执行：
+
+```bash
+sudo bash deploy.sh xui --yes
+sudo bash deploy.sh nat-proxy --yes
+sudo bash deploy.sh network --yes
+```
+
+`fresh` 和 `repair` 不会自动安装 xui/NAT。
+
 服务目录：
 
 ```text
@@ -163,6 +179,7 @@ RustFS 备份
 
 - [部署流程](docs/deployment.md)
 - [运维手册](docs/operations.md)
+- [可选 xui/NAT 网络组件](docs/network-components.md)
 - [排障](docs/troubleshooting.md)
 - [迁移与裁剪](docs/migration-and-trim.md)
 - [开源发布检查](docs/open-source-release.md)

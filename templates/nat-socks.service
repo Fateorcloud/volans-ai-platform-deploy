@@ -1,0 +1,22 @@
+[Unit]
+Description=SSH dynamic SOCKS tunnel to NAT VPS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment="AUTOSSH_GATETIME=0"
+ExecStart=/usr/bin/autossh -M 0 -N \
+  -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 \
+  -o ServerAliveCountMax=3 \
+  -o StrictHostKeyChecking=accept-new \
+  -i __NAT_SSH_KEY_PATH__ \
+  -p __NAT_SSH_PORT__ \
+  -D __NAT_SOCKS_LISTEN__ \
+  __NAT_SSH_USER__@__NAT_SSH_HOST__
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

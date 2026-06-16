@@ -100,6 +100,40 @@ cd /opt/lobehub
 docker compose up -d --force-recreate lobehub
 ```
 
+如果启用了可选 NAT 代理，确认 LobeHub 容器继承了代理变量：
+
+```bash
+cd /opt/lobehub
+docker exec lobehub env | grep -E '^(HTTP_PROXY|HTTPS_PROXY|NO_PROXY)='
+curl -x http://127.0.0.1:7890 -I --max-time 10 https://api.deepseek.com
+```
+
+未启用 NAT 时，`HTTP_PROXY` 和 `HTTPS_PROXY` 应保持为空。
+
+## xui/NAT 可选组件不可用
+
+这两个组件不会随 `fresh` 自动安装。先检查 `.env`：
+
+```text
+ENABLE_XUI=true
+ENABLE_NAT_PROXY=true
+```
+
+再按需运行：
+
+```bash
+sudo bash deploy.sh xui --yes
+sudo bash deploy.sh nat-proxy --yes
+```
+
+NAT 依赖 SSH key 已经存在于服务器：
+
+```bash
+test -f "$NAT_SSH_KEY_PATH"
+systemctl status nat-socks
+systemctl status privoxy
+```
+
 ## 端口误开放公网
 
 验证脚本会失败：

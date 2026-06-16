@@ -12,6 +12,8 @@ archives.
 - LobeHub secrets such as `KEY_VAULTS_SECRET` and `AUTH_SECRET`
 - PostgreSQL passwords, RustFS access keys, or SearXNG secrets
 - SSH private keys, known-hosts files, or server-specific notes
+- NAT server hostnames, SSH usernames, SSH key paths, or xui panel credentials
+  if they identify a real deployment
 - `postgres_data/`, `redis_data/`, `rustfs_data/`, `rustfs_logs/`, or backup archives
 
 ## Before Publishing
@@ -38,6 +40,10 @@ The first deployment phase is local-only. These ports should bind to
 16379 Redis
 18080 SearXNG
 ```
+
+Optional xui/NAT components are not part of the core LobeHub platform. If you
+enable them, keep the xui panel and the HTTP proxy behind explicit firewall and
+access-control rules.
 
 Only your SSH port should be public during the local test phase. Publish LobeHub
 through a reverse proxy or Cloudflare Tunnel only after authentication and S3

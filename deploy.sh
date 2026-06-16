@@ -12,6 +12,9 @@ Usage:
   sudo bash deploy.sh repair [--yes]
   sudo bash deploy.sh verify
   sudo bash deploy.sh backup
+  sudo bash deploy.sh xui [--yes]
+  sudo bash deploy.sh nat-proxy [--yes]
+  sudo bash deploy.sh network [--yes]
   bash deploy.sh security-scan
 
 Commands:
@@ -19,6 +22,9 @@ Commands:
   repair         Re-render LobeHub files, restart services, refresh backup cron, and verify.
   verify         Read-only local checks.
   backup         Run PostgreSQL and RustFS backups.
+  xui            Install or repair the optional xui side component.
+  nat-proxy      Install or repair the optional NAT egress proxy.
+  network        Run xui and nat-proxy setup in sequence.
   security-scan  Check for common secrets before publishing.
 USAGE
 }
@@ -58,6 +64,25 @@ case "$COMMAND" in
   backup)
     require_root
     bash "$PROJECT_DIR/backup.sh"
+    ;;
+  xui)
+    require_root
+    load_env
+    confirm "Set up optional xui component?"
+    bash "$PROJECT_DIR/scripts/35_setup_xui.sh"
+    ;;
+  nat-proxy)
+    require_root
+    load_env
+    confirm "Set up optional NAT egress proxy?"
+    bash "$PROJECT_DIR/scripts/50_setup_nat_proxy.sh"
+    ;;
+  network)
+    require_root
+    load_env
+    confirm "Set up optional xui and NAT network components?"
+    bash "$PROJECT_DIR/scripts/35_setup_xui.sh"
+    bash "$PROJECT_DIR/scripts/50_setup_nat_proxy.sh"
     ;;
   security-scan)
     bash "$PROJECT_DIR/scripts/80_security_scan.sh"

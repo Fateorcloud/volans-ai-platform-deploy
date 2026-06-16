@@ -46,6 +46,12 @@ services:
       S3_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY}
       LLM_VISION_IMAGE_USE_BASE64: "1"
       SEARXNG_URL: http://127.0.0.1:${SEARXNG_HOST_PORT:-18080}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,.local}
+      http_proxy: ${HTTP_PROXY:-}
+      https_proxy: ${HTTPS_PROXY:-}
+      no_proxy: ${NO_PROXY:-localhost,127.0.0.1,.local}
       TZ: ${TZ:-Asia/Shanghai}
 
   postgresql:
